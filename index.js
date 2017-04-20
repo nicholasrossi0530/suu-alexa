@@ -2,26 +2,48 @@
 var Alexa = require('alexa-sdk');
 
 var APP_ID = undefined; //OPTIONAL: replace with "amzn1.echo-sdk-ams.app.[your-unique-value-here]";
-var SKILL_NAME = 'Space Facts';
+var SKILL_NAME = 'On Campus Dining';
 
-/**
- * Array containing space facts.
- */
-var FACTS = [
-    "A year on Mercury is just 88 days long.",
-    "Despite being farther from the Sun, Venus experiences higher temperatures than Mercury.",
-    "Venus rotates counter-clockwise, possibly because of a collision in the past with an asteroid.",
-    "On Mars, the Sun appears about half the size as it does on Earth.",
-    "Earth is the only planet not named after a god.",
-    "Jupiter has the shortest day of all the planets.",
-    "The Milky Way galaxy will collide with the Andromeda Galaxy in about 5 billion years.",
-    "The Sun contains 99.86% of the mass in the Solar System.",
-    "The Sun is an almost perfect sphere.",
-    "A total solar eclipse can happen once every 1 to 2 years. This makes them a rare event.",
-    "Saturn radiates two and a half times more energy into space than it receives from the sun.",
-    "The temperature inside the Sun can reach 15 million degrees Celsius.",
-    "The Moon is moving approximately 3.8 cm away from our planet every year."
-];
+function greeting() {
+    return "Welcome to Thunderbird Dining!";
+}
+
+function scrapeDining(result) {
+    var url = 'https://new.dineoncampus.com/v1/location/menu.json?date=2017-4-19&location_id=587e5ede3191a20db79dd2bc&platform=0&site_id=5751fd3790975b60e04893f0';
+var http = require('https');
+http.get(url, function(res){
+    var body = '';
+
+    res.on('data', function(chunk){
+        body += chunk;
+    });
+
+    res.on('end', function(){
+        var response = JSON.parse(body);
+        result(response);
+    });
+}).on('error', function(e){
+      console.log("Got an error: ", e);
+});
+}
+
+function chooseMeal(meals) {
+    scrapeDining(function(result){
+        meals(result.menu.periods);
+    });
+}
+
+function listMeals() {
+    chooseMeal(function(meals){     
+            var result = "";
+            for(var m in meals){
+                result += meals[m].name + " ";
+            }
+            var speechOutput = "The meals are " + result +  ".";
+            console.log(speechOutput);
+        });
+}
+
 
 exports.handler = function(event, context, callback) {
     var alexa = Alexa.handler(event, context);
@@ -32,20 +54,18 @@ exports.handler = function(event, context, callback) {
 
 var handlers = {
     'LaunchRequest': function () {
-        this.emit('GetFact');
+        this.emit(':tell', greeting());
     },
-    'GetNewFactIntent': function () {
-        this.emit('GetFact');
-    },
-    'GetFact': function () {
-        // Get a random space fact from the space facts list
-        var factIndex = Math.floor(Math.random() * FACTS.length);
-        var randomFact = FACTS[factIndex];
-
-        // Create speech output
-        var speechOutput = "Here's your fact: " + randomFact;
-
-        this.emit(':tellWithCard', speechOutput, SKILL_NAME, randomFact)
+    'ChooseMealIntent': function () {
+        var outerThis = this;
+        chooseMeal(function(meals){     
+            var result = "";
+            for(var m in meals){
+                result += meals[m].name + ", ";
+            }
+            var speechOutput = "The meals are " + result + ".";
+            outerThis.emit(':tell', speechOutput);
+        });
     },
     'AMAZON.HelpIntent': function () {
         var speechOutput = "You can say tell me a space fact, or, you can say exit... What can I help you with?";
